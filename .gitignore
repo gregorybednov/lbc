@@ -1,0 +1,15 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+lbc
+.DS_Store
+badger/
+config/
+data/
+yggstack/
+.vscode/
+*.test
+*.out
+go.work
