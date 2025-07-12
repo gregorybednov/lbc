@@ -1,4 +1,4 @@
-package autoPeering
+package autopeering
 
 import (
 	"context"
