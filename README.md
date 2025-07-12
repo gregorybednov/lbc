@@ -1,4 +1,8 @@
 # lbc
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> d8e9608 (Fix key parsing and update docs)
 
 Experimental blockchain implementation built on Tendermint and BadgerDB.
 
@@ -27,3 +31,9 @@ go run .
 ```
 
 See `--help` for a full list of available options.
+<<<<<<< HEAD
+=======
+blockchain for social cooperation
+>>>>>>> 1e4be97 (Initial commit)
+=======
+>>>>>>> d8e9608 (Fix key parsing and update docs)

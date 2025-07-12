@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	autoPeering "lbc/autopeering"
+	"lbc/autoPeering"
 	ppp "lbc/persistentpeersparser"
 	"net"
 	"os"
@@ -18,7 +18,6 @@ import (
 
 	"github.com/gologme/log"
 	"github.com/spf13/viper"
-	"github.com/things-go/go-socks5"
 
 	"github.com/yggdrasil-network/yggdrasil-go/src/admin"
 	yggConfig "github.com/yggdrasil-network/yggdrasil-go/src/config"
@@ -69,10 +68,18 @@ func GetPublicKey(keyPath string) (ed25519.PublicKey, error) {
 	return privateKey.Public().(ed25519.PublicKey), nil
 }
 
-func GetYggdrasilAddress(config *viper.Viper) string {
+func GetYggdrasilAddress(config *viper.Viper, ch chan string) string {
+	var remoteTcp types.TCPRemoteMappings
 	ygg := config.Sub("yggdrasil")
 	if ygg == nil {
 		return ""
+	}
+
+	laddr := config.Sub("p2p").GetString("laddr")
+	remoteTcp.Set(laddr)
+	if ch != nil {
+		ch <- remoteTcp[0].Mapped.String()
+		ch <- ""
 	}
 
 	cfg := yggConfig.GenerateConfig()
@@ -175,6 +182,8 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 		cfg.Peers = ygg.GetStringSlice("peers")
 	}
 
+	logger.Infof("Yggdrasil peers: %s", cfg.Peers)
+
 	cfg.AllowedPublicKeys = ygg.GetStringSlice("allowed-public-keys")
 	cfg.PrivateKeyPath = ygg.GetString("private-key-file")
 
@@ -263,62 +272,6 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	s, err := netstack.CreateYggdrasilNetstack(n.core)
 	if err != nil {
 		panic(err)
-	}
-
-	// Create SOCKS server
-	{
-		if socks != "" {
-			socksOptions := []socks5.Option{
-				socks5.WithDial(s.DialContext),
-			}
-			if logger.GetLevel("debug") {
-				socksOptions = append(socksOptions, socks5.WithLogger(logger))
-			}
-			server := socks5.NewServer(socksOptions...)
-			if strings.Contains(socks, ":") {
-				logger.Infof("Starting SOCKS server on %s", socks)
-				n.socks5Tcp, err = net.Listen("tcp", socks)
-				if err != nil {
-					panic(err)
-				}
-				go func() {
-					err := server.Serve(n.socks5Tcp)
-					if err != nil {
-						panic(err)
-					}
-				}()
-			} else {
-				logger.Infof("Starting SOCKS server with socket file %s", socks)
-				n.socks5Unix, err = net.Listen("unix", socks)
-				if err != nil {
-					// If address in use, try connecting to
-					// the socket to see if other yggstack
-					// instance is listening on it
-
-					if isErrorAddressAlreadyInUse(err) {
-						_, err = net.Dial("unix", socks)
-						if err != nil {
-							// Unlink dead socket if not connected
-							err = os.RemoveAll(socks)
-							if err != nil {
-								panic(err)
-							}
-						} else {
-							log.Errorf("Another yggstack instance is listening on socket '%s'", socks)
-							panic(err)
-						}
-					} else {
-						panic(err)
-					}
-				}
-				go func() {
-					err := server.Serve(n.socks5Unix)
-					if err != nil {
-						panic(err)
-					}
-				}()
-			}
-		}
 	}
 
 	// Create local TCP mappings (forwarding connections from local port

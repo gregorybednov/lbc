@@ -2,6 +2,7 @@ package configfunctions
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"lbc/yggdrasil"
@@ -75,7 +76,7 @@ func writeYggdrasilKey(path string) {
 	os.WriteFile(path, []byte(hexKey), 0600)
 }
 
-func WriteConfig(config *cfg.Config, configPath *string, isJoinerGenerator bool, nodeInfo p2p.NodeInfo) {
+func WriteConfig(config *cfg.Config, configPath *string, nodeInfo p2p.NodeInfo) *viper.Viper {
 	writeYggdrasilKey(*yggKeyPath)
 	pubkey, err := yggdrasil.GetPublicKey(*yggKeyPath)
 	if err != nil {
@@ -115,19 +116,10 @@ func WriteConfig(config *cfg.Config, configPath *string, isJoinerGenerator bool,
 		"private_key_file":    *yggKeyPath,
 	})
 
-	if isJoinerGenerator {
-		// TODO idea what if mix persistent peers from the current persistent peers list appending current and mix them all?
-		nodeId := nodeInfo.ID()
-		myPeer := yggdrasil.GetYggdrasilAddress(v)
-		config.P2P.PersistentPeers = string(nodeId) + "@ygg://[" + myPeer + "]:" + strconv.Itoa(yggListenPort)
-	} else {
-		config.P2P.PersistentPeers = ""
-	}
-
 	v.Set("p2p", map[string]interface{}{
 		"use_legacy":       false,
 		"queue_type":       "priority",
-		"laddr":            strconv.Itoa(yggListenPort) + ":127.0.0.1:80",
+		"laddr":            strconv.Itoa(yggListenPort) + ":127.0.0.1:8000",
 		"external_address": "", // will be set automatically by Tendermint if needed
 		"upnp":             false,
 		"bootstrap_peers":  "",
@@ -136,13 +128,17 @@ func WriteConfig(config *cfg.Config, configPath *string, isJoinerGenerator bool,
 		"addr_book_strict": true,
 	})
 
+	nodeId := nodeInfo.ID()
+	myPeer := yggdrasil.GetYggdrasilAddress(v, nil)
+	config.P2P.PersistentPeers = string(nodeId) + "@ygg://[" + myPeer + "]:" + strconv.Itoa(yggListenPort)
+
 	err = v.WriteConfigAs(*configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error writing config: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Custom config written to %s\n", *configPath)
+	return v
 }
 
 func ReadConfig(configFile string) (*cfg.Config, error) {
@@ -168,4 +164,29 @@ func ReadConfig(configFile string) (*cfg.Config, error) {
 
 func DefaultConfig() *cfg.Config {
 	return cfg.DefaultConfig()
+}
+
+func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper) {
+	file, err := os.ReadFile("./config/genesis.json") // TODO remove hardocded paths
+	if err != nil {
+		panic(err)
+	}
+
+	var dat map[string]any
+	if err := json.Unmarshal(file, &dat); err != nil {
+		panic(err)
+	}
+
+	myPeer := yggdrasil.GetYggdrasilAddress(v, nil)
+
+	p2peers := fmt.Sprintf("%s@ygg://[%s]:%d", nodeInfo.ID(), myPeer, yggListenPort)
+	dat["p2peers"] = p2peers
+
+	out, err := json.MarshalIndent(dat, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile("./config/genesis.json", out, 0o644); err != nil {
+		panic(err)
+	}
 }

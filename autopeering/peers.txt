@@ -106,7 +106,6 @@ tcp://longseason.1200bps.xyz:13121
 tcp://149.28.123.138:8008
 tcp://lancis.iscute.moe:49273
 tcp://zabugor.itrus.su:7991
-tcp://supergay.network:9002
 tls://108.175.10.127:61216
 tls://longseason.1200bps.xyz:13122
 tls://167.160.89.98:7040

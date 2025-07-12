@@ -1,10 +1,17 @@
 module lbc
 
-go 1.24
+go 1.24.3
 
 require (
 	github.com/dgraph-io/badger v1.6.2
+	github.com/go-git/go-git/v5 v5.16.2
+	github.com/gologme/log v1.3.0
+	github.com/spf13/cobra v1.6.0
+	github.com/spf13/viper v1.13.0
 	github.com/tendermint/tendermint v0.34.24
+	github.com/things-go/go-socks5 v0.0.5
+	github.com/yggdrasil-network/yggdrasil-go v0.5.12
+	github.com/yggdrasil-network/yggstack v0.0.0-20250208132654-8ad1962f6456
 )
 
 require (
@@ -52,6 +59,7 @@ require (
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hjson/hjson-go/v4 v4.4.0 // indirect
+	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
@@ -81,7 +89,6 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
@@ -106,16 +113,5 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-)
-
-require (
-	github.com/go-git/go-git/v5 v5.16.2
-	github.com/gologme/log v1.3.0
-	github.com/spf13/viper v1.13.0
-	github.com/things-go/go-socks5 v0.0.5
-	github.com/yggdrasil-network/yggdrasil-go v0.5.12
-	github.com/yggdrasil-network/yggstack v0.0.0-20250208132654-8ad1962f6456
 	gvisor.dev/gvisor v0.0.0-20240810013311-326fe0f2a77f // indirect
 )
-
-replace github.com/yggdrasil-network/yggstack/cmd/yggstack => ./yggstack
