@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"lbc/autoPeering"
+	"lbc/autopeering"
 	ppp "lbc/persistentpeersparser"
 	"net"
 	"os"
@@ -172,7 +172,7 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	cfg.AdminListen = ygg.GetString("admin_listen")
 	cfg.Listen = ygg.GetStringSlice("listen")
 	if ygg.GetString("peers") == "auto" {
-		publicPeers := autoPeering.GetPublicPeers()
+		publicPeers := autopeering.GetPublicPeers()
 		var urlsAsStrings []string
 		for _, u := range publicPeers {
 			urlsAsStrings = append(urlsAsStrings, u.String())
