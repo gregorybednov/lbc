@@ -23,7 +23,7 @@ var (
 	yggKeyPath    = flag.String("ygg-key", "./config/yggdrasil.key", "Path to Yggdrasil key file")
 )
 
-func InitTendermintFiles(config *cfg.Config) error {
+func InitTendermintFiles(config *cfg.Config, chainName string) error {
 	if err := os.MkdirAll(filepath.Dir(config.PrivValidatorKeyFile()), 0700); err != nil {
 		return err
 	}
@@ -48,7 +48,7 @@ func InitTendermintFiles(config *cfg.Config) error {
 
 	// Genesis
 	genDoc := &tmTypes.GenesisDoc{
-		ChainID:         "lbc-chain",
+		ChainID:         chainName,
 		GenesisTime:     time.Now(),
 		ConsensusParams: tmTypes.DefaultConsensusParams(),
 		Validators: []tmTypes.GenesisValidator{

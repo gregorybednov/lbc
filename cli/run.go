@@ -25,10 +25,12 @@ import (
 
 var defaultConfigPath string
 var dbPath string
+var chainName string
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&defaultConfigPath, "config", "./config/config.toml", "Путь к конфигурационному файлу")
 	rootCmd.PersistentFlags().StringVar(&dbPath, "badger", "./badger", "Путь к базе данных BadgerDB")
+	rootCmd.PersistentFlags().StringVar(&chainName, "chainname", "lbc-chain", "Название цепочки блоков")
 }
 
 func newTendermint(app abci.Application, configFile string, v *viper.Viper) (*nm.Node, error) {
@@ -147,7 +149,7 @@ func initGenesis() {
 
 	nodeinfo := p2p.DefaultNodeInfo{}
 	viper := cfg.WriteConfig(config, &defaultConfigPath, nodeinfo)
-	if err := cfg.InitTendermintFiles(config); err != nil {
+	if err := cfg.InitTendermintFiles(config, chainName); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to init files: %v\n", err)
 		panic(err)
 	}
