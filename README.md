@@ -16,11 +16,15 @@ The binary exposes several flags. To generate configuration files and keys for a
 new node run:
 
 ```bash
-go run . init --mode genesis
+go run . init genesis
 ```
 
-For joining an existing network use `--mode join` instead. Once configured you
-can start the node with:
+For joining an existing network use `init join` instead:
+```bash
+go run . init join <path to genesis.json>
+```
+
+Once configured you can start the node with:
 
 ```bash
 go run .

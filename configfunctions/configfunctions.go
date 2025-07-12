@@ -166,8 +166,8 @@ func DefaultConfig() *cfg.Config {
 	return cfg.DefaultConfig()
 }
 
-func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper) {
-	file, err := os.ReadFile("./config/genesis.json") // TODO remove hardocded paths
+func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper, defaultConfigDirectoryPath string) {
+	file, err := os.ReadFile(defaultConfigDirectoryPath + "/genesis.json")
 	if err != nil {
 		panic(err)
 	}
@@ -186,7 +186,7 @@ func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper) {
 	if err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile("./config/genesis.json", out, 0o644); err != nil {
+	if err := os.WriteFile(defaultConfigDirectoryPath+"/genesis.json", out, 0o644); err != nil {
 		panic(err)
 	}
 }

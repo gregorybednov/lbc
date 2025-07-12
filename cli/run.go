@@ -158,7 +158,7 @@ func initGenesis() {
 	}
 	db.Close()
 
-	cfg.UpdateGenesisJson(node.NodeInfo(), viper)
+	cfg.UpdateGenesisJson(node.NodeInfo(), viper, filepath.Dir(defaultConfigPath))
 	fmt.Println("Genesis node initialized.")
 }
 

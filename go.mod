@@ -9,7 +9,6 @@ require (
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/viper v1.13.0
 	github.com/tendermint/tendermint v0.34.24
-	github.com/things-go/go-socks5 v0.0.5
 	github.com/yggdrasil-network/yggdrasil-go v0.5.12
 	github.com/yggdrasil-network/yggstack v0.0.0-20250208132654-8ad1962f6456
 )
