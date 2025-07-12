@@ -1,0 +1,36 @@
+{
+  "app_hash": "",
+  "chain_id": "lbc-chain",
+  "consensus_params": {
+    "block": {
+      "max_bytes": "22020096",
+      "max_gas": "-1",
+      "time_iota_ms": "1000"
+    },
+    "evidence": {
+      "max_age_duration": "172800000000000",
+      "max_age_num_blocks": "100000",
+      "max_bytes": "1048576"
+    },
+    "validator": {
+      "pub_key_types": [
+        "ed25519"
+      ]
+    },
+    "version": {}
+  },
+  "genesis_time": "2025-07-12T17:34:34.7567451Z",
+  "initial_height": "0",
+  "p2peers": "f8366fe22e5a3cd64281ecfc6e50075903848ab9@ygg://[200:6687:b756:51a2:1147:aef0:9011:c142]:4224",
+  "validators": [
+    {
+      "address": "F1585752261F319FE0A9E2097825A2807622AE5A",
+      "name": "DESKTOP-HN9RCT8",
+      "power": "10",
+      "pub_key": {
+        "type": "tendermint/PubKeyEd25519",
+        "value": "gnPCTB+kqaiw2TmFwrZYoCcWiPO3SdTf1IB7rEdBulE="
+      }
+    }
+  ]
+}

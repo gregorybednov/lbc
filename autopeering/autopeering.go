@@ -68,7 +68,6 @@ func GetPublicPeers() []url.URL {
 		if err != nil {
 			return nil
 		}
-		print(d.Name())
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") || d.Name() == "README.md" {
 			return nil
 		}

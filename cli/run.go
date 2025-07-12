@@ -40,10 +40,19 @@ func newTendermint(app abci.Application, configFile string, v *viper.Viper) (*nm
 	}
 
 	laddrReturner := make(chan string, 2)
-	go yggdrasil.Yggdrasil(v, laddrReturner)
 
+	config.P2P.PersistentPeers = cfg.ReadP2Peers(configFile)
+	//v.Set("p2p.persistent_peers", config.P2P.PersistentPeers)
+	//v.Set("")
+
+	go yggdrasil.Yggdrasil(v, laddrReturner)
 	config.P2P.ListenAddress = "tcp://" + <-laddrReturner
+
+	//if config.P2P.PersistentPeers == "" {
 	config.P2P.PersistentPeers = <-laddrReturner
+	//} else {
+	//	<- laddrReturner
+	//}
 
 	var pv tmTypes.PrivValidator
 	if _, err := os.Stat(config.PrivValidatorKeyFile()); err == nil {
@@ -123,6 +132,30 @@ func buildNode() (*nm.Node, *badger.DB, error) {
 	return node, db, err
 }
 
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	if err = os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = out.Sync()
+		_ = out.Close()
+	}()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
 func runNode() {
 	node, db, err := buildNode()
 	if err != nil {
@@ -149,7 +182,7 @@ func initGenesis() {
 
 	nodeinfo := p2p.DefaultNodeInfo{}
 	viper := cfg.WriteConfig(config, &defaultConfigPath, nodeinfo)
-	if err := cfg.InitTendermintFiles(config, chainName); err != nil {
+	if err := cfg.InitTendermintFiles(config, true, chainName); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to init files: %v\n", err)
 		panic(err)
 	}
@@ -164,30 +197,6 @@ func initGenesis() {
 	fmt.Println("Genesis node initialized.")
 }
 
-func copyFile(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-
-	if err = os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
-		return err
-	}
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = out.Sync()
-		_ = out.Close()
-	}()
-
-	_, err = io.Copy(out, in)
-	return err
-}
-
 func initJoiner(path string) {
 	config := cfg.DefaultConfig()
 	config.RootDir = filepath.Dir(filepath.Dir(defaultConfigPath))
@@ -195,6 +204,14 @@ func initJoiner(path string) {
 	if err := copyFile(path, config.GenesisFile()); err != nil {
 		fmt.Fprintln(os.Stderr, "не удалось скопировать genesis.json:", err)
 		os.Exit(3)
+	}
+
+	nodeinfo := p2p.DefaultNodeInfo{}
+	cfg.WriteConfig(config, &defaultConfigPath, nodeinfo)
+	//viper := cfg.WriteConfig(config, &defaultConfigPath, nodeinfo)
+	if err := cfg.InitTendermintFiles(config, false, chainName); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to init files: %v\n", err)
+		panic(err)
 	}
 
 	node, db, err := buildNode()
@@ -205,10 +222,10 @@ func initJoiner(path string) {
 
 	cfg.WriteConfig(config, &defaultConfigPath, node.NodeInfo())
 
-	if err := os.MkdirAll(filepath.Join(config.RootDir, "data"), 0o700); err != nil {
-		fmt.Fprintln(os.Stderr, "не удалось создать директорию data")
-		os.Exit(1)
-	}
+	//if err := os.MkdirAll(filepath.Join(config.RootDir, "data"), 0o700); err != nil {
+	//	fmt.Fprintln(os.Stderr, "не удалось создать директорию data")
+	//	os.Exit(1)
+	//}
 
 	if _, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile()); err != nil {
 		fmt.Fprintln(os.Stderr, "ошибка генерации node_key.json")

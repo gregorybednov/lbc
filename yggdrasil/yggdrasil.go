@@ -68,19 +68,15 @@ func GetPublicKey(keyPath string) (ed25519.PublicKey, error) {
 	return privateKey.Public().(ed25519.PublicKey), nil
 }
 
-func GetYggdrasilAddress(config *viper.Viper, ch chan string) string {
-	var remoteTcp types.TCPRemoteMappings
+func GetYggdrasilAddress(config *viper.Viper) string {
+	//var remoteTcp types.TCPRemoteMappings
 	ygg := config.Sub("yggdrasil")
 	if ygg == nil {
 		return ""
 	}
 
-	laddr := config.Sub("p2p").GetString("laddr")
-	remoteTcp.Set(laddr)
-	if ch != nil {
-		ch <- remoteTcp[0].Mapped.String()
-		ch <- ""
-	}
+	//laddr := config.Sub("p2p").GetString("laddr")
+	//remoteTcp.Set(laddr)
 
 	cfg := yggConfig.GenerateConfig()
 
@@ -147,13 +143,6 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 		return
 	}
 
-	peers := p2p.GetString("persistent_peers")
-	parsed, err := ppp.ParseEntries(peers)
-	if err != nil {
-		log.Errorln("Error: persistent peers has an error")
-		return
-	}
-
 	var peersList []string
 	var yggList []string
 
@@ -163,9 +152,17 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 		logger = log.New(os.Stdout, "", log.Flags())
 	}
 
-	laddr := config.Sub("p2p").GetString("laddr")
+	laddr := p2p.GetString("laddr")
 	remoteTcp.Set(laddr)
 	ch <- remoteTcp[0].Mapped.String()
+
+	peers := p2p.GetString("persistent_peers")
+	parsed, err := ppp.ParseEntries(peers)
+	if err != nil {
+		parsed = []ppp.ParsedEntry{}
+		ch <- ""
+		log.Warnln("Warning: persistent peers has an error")
+	}
 
 	cfg := yggConfig.GenerateConfig()
 

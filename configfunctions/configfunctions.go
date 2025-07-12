@@ -23,7 +23,7 @@ var (
 	yggKeyPath    = flag.String("ygg-key", "./config/yggdrasil.key", "Path to Yggdrasil key file")
 )
 
-func InitTendermintFiles(config *cfg.Config, chainName string) error {
+func InitTendermintFiles(config *cfg.Config, isGenesis bool, chainName string) error {
 	if err := os.MkdirAll(filepath.Dir(config.PrivValidatorKeyFile()), 0700); err != nil {
 		return err
 	}
@@ -46,24 +46,28 @@ func InitTendermintFiles(config *cfg.Config, chainName string) error {
 		return err
 	}
 
-	// Genesis
-	genDoc := &tmTypes.GenesisDoc{
-		ChainID:         chainName,
-		GenesisTime:     time.Now(),
-		ConsensusParams: tmTypes.DefaultConsensusParams(),
-		Validators: []tmTypes.GenesisValidator{
-			{
-				Address: key.Address(),
-				PubKey:  key,
-				Power:   10,
-				Name:    config.Moniker,
-			},
-		},
-		AppHash: []byte{},
-	}
-
 	pv.Save()
-	return genDoc.SaveAs(config.GenesisFile())
+
+	if isGenesis {
+		// Genesis
+		genDoc := &tmTypes.GenesisDoc{
+			ChainID:         chainName,
+			GenesisTime:     time.Now(),
+			ConsensusParams: tmTypes.DefaultConsensusParams(),
+			Validators: []tmTypes.GenesisValidator{
+				{
+					Address: key.Address(),
+					PubKey:  key,
+					Power:   10,
+					Name:    config.Moniker,
+				},
+			},
+			AppHash: []byte{},
+		}
+
+		return genDoc.SaveAs(config.GenesisFile())
+	}
+	return nil
 }
 
 func writeYggdrasilKey(path string) {
@@ -116,6 +120,14 @@ func WriteConfig(config *cfg.Config, configPath *string, nodeInfo p2p.NodeInfo) 
 		"private_key_file":    *yggKeyPath,
 	})
 
+	if a := ReadP2Peers(*configPath); a == "" {
+		nodeId := nodeInfo.ID()
+		myPeer := yggdrasil.GetYggdrasilAddress(v)
+		config.P2P.PersistentPeers = string(nodeId) + "@ygg://[" + myPeer + "]:" + strconv.Itoa(yggListenPort)
+	} else {
+		config.P2P.PersistentPeers = a
+	}
+
 	v.Set("p2p", map[string]interface{}{
 		"use_legacy":       false,
 		"queue_type":       "priority",
@@ -125,12 +137,8 @@ func WriteConfig(config *cfg.Config, configPath *string, nodeInfo p2p.NodeInfo) 
 		"bootstrap_peers":  "",
 		"persistent_peers": config.P2P.PersistentPeers,
 		"addr_book_file":   "config/addrbook.json",
-		"addr_book_strict": true,
+		"addr_book_strict": false,
 	})
-
-	nodeId := nodeInfo.ID()
-	myPeer := yggdrasil.GetYggdrasilAddress(v, nil)
-	config.P2P.PersistentPeers = string(nodeId) + "@ygg://[" + myPeer + "]:" + strconv.Itoa(yggListenPort)
 
 	err = v.WriteConfigAs(*configPath)
 	if err != nil {
@@ -166,8 +174,24 @@ func DefaultConfig() *cfg.Config {
 	return cfg.DefaultConfig()
 }
 
+func ReadP2Peers(configFile string) string {
+	var genesis map[string]any
+	genesisJson, err := os.ReadFile(filepath.Join(filepath.Dir(configFile), "genesis.json"))
+	if err != nil {
+		return ""
+	}
+	_ = json.Unmarshal(genesisJson, &genesis)
+	p2peers, ok := genesis["p2peers"].(string)
+	if ok && p2peers != "" {
+		return p2peers
+	} else {
+		return ""
+	}
+}
+
 func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper, defaultConfigDirectoryPath string) {
-	file, err := os.ReadFile(defaultConfigDirectoryPath + "/genesis.json")
+	genesisJsonPath := filepath.Join(defaultConfigDirectoryPath, "genesis.json")
+	file, err := os.ReadFile(genesisJsonPath)
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +201,7 @@ func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper, defaultConfigDirec
 		panic(err)
 	}
 
-	myPeer := yggdrasil.GetYggdrasilAddress(v, nil)
+	myPeer := yggdrasil.GetYggdrasilAddress(v)
 
 	p2peers := fmt.Sprintf("%s@ygg://[%s]:%d", nodeInfo.ID(), myPeer, yggListenPort)
 	dat["p2peers"] = p2peers
@@ -186,7 +210,7 @@ func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper, defaultConfigDirec
 	if err != nil {
 		panic(err)
 	}
-	if err := os.WriteFile(defaultConfigDirectoryPath+"/genesis.json", out, 0o644); err != nil {
+	if err := os.WriteFile(genesisJsonPath, out, 0o644); err != nil {
 		panic(err)
 	}
 }
