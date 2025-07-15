@@ -1,4 +1,4 @@
-package abciapp
+package blockchain
 
 import (
 	"bytes"

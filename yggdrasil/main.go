@@ -2,17 +2,12 @@ package yggdrasil
 
 import (
 	"context"
-	"crypto/ed25519"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"lbc/autopeering"
-	ppp "lbc/persistentpeersparser"
 	"net"
 	"os"
 	"os/signal"
 	"regexp"
-	"runtime"
 	"strings"
 	"syscall"
 
@@ -45,88 +40,6 @@ type TCPRemoteListenerMapping struct {
 	Mapped *net.TCPListener
 }
 
-func GeneratePrivateKey() yggConfig.KeyBytes {
-	return yggConfig.GenerateConfig().PrivateKey
-}
-
-func GetPublicKey(keyPath string) (ed25519.PublicKey, error) {
-	data, err := os.ReadFile(keyPath)
-	if err != nil {
-		return ed25519.PublicKey{}, err
-	}
-
-	decoded, err := hex.DecodeString(strings.TrimSpace(string(data)))
-	if err != nil {
-		return ed25519.PublicKey{}, err
-	}
-
-	if len(decoded) != ed25519.PrivateKeySize {
-		return ed25519.PublicKey{}, fmt.Errorf("invalid private key size: %d", len(decoded))
-	}
-
-	privateKey := ed25519.PrivateKey(decoded)
-	return privateKey.Public().(ed25519.PublicKey), nil
-}
-
-func GetYggdrasilAddress(config *viper.Viper) string {
-	//var remoteTcp types.TCPRemoteMappings
-	ygg := config.Sub("yggdrasil")
-	if ygg == nil {
-		return ""
-	}
-
-	//laddr := config.Sub("p2p").GetString("laddr")
-	//remoteTcp.Set(laddr)
-
-	cfg := yggConfig.GenerateConfig()
-
-	cfg.AdminListen = ygg.GetString("admin_listen")
-	cfg.Listen = ygg.GetStringSlice("listen")
-	cfg.Peers = ygg.GetStringSlice("peers")
-	cfg.AllowedPublicKeys = ygg.GetStringSlice("allowed-public-keys")
-	cfg.PrivateKeyPath = ygg.GetString("private-key-file")
-
-	logger := log.Default()
-
-	n := &node{}
-
-	// Setup the Yggdrasil node itself.
-	{
-		options := []core.SetupOption{
-			core.NodeInfo(cfg.NodeInfo),
-			core.NodeInfoPrivacy(cfg.NodeInfoPrivacy),
-		}
-		for _, addr := range cfg.Listen {
-			options = append(options, core.ListenAddress(addr))
-		}
-		for _, peer := range cfg.Peers {
-			options = append(options, core.Peer{URI: peer})
-		}
-		for intf, peers := range cfg.InterfacePeers {
-			for _, peer := range peers {
-				options = append(options, core.Peer{URI: peer, SourceInterface: intf})
-			}
-		}
-		for _, allowed := range cfg.AllowedPublicKeys {
-			k, err := hex.DecodeString(allowed)
-			if err != nil {
-				panic(err)
-			}
-			options = append(options, core.AllowedPublicKey(k[:]))
-		}
-
-		var err error
-		if n.core, err = core.New(cfg.Certificate, logger, options...); err != nil {
-			panic(err)
-		}
-
-		address := n.core.Address()
-		n.core.Stop()
-		return address.String()
-	}
-
-}
-
 // The main function is responsible for configuring and starting Yggdrasil.
 func Yggdrasil(config *viper.Viper, ch chan string) {
 	var remoteTcp types.TCPRemoteMappings
@@ -157,9 +70,9 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	ch <- remoteTcp[0].Mapped.String()
 
 	peers := p2p.GetString("persistent_peers")
-	parsed, err := ppp.ParseEntries(peers)
+	parsed, err := ParseEntries(peers)
 	if err != nil {
-		parsed = []ppp.ParsedEntry{}
+		parsed = []ParsedEntry{}
 		ch <- ""
 		log.Warnln("Warning: persistent peers has an error")
 	}
@@ -169,7 +82,7 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	cfg.AdminListen = ygg.GetString("admin_listen")
 	cfg.Listen = ygg.GetStringSlice("listen")
 	if ygg.GetString("peers") == "auto" {
-		publicPeers := autopeering.GetPublicPeers()
+		publicPeers := getPublicPeers()
 		var urlsAsStrings []string
 		for _, u := range publicPeers {
 			urlsAsStrings = append(urlsAsStrings, u.String())
@@ -372,23 +285,4 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	n.core.Stop()
 }
 
-// Helper to detect if socket address is in use
-// https://stackoverflow.com/a/52152912
-func isErrorAddressAlreadyInUse(err error) bool {
-	var eOsSyscall *os.SyscallError
-	if !errors.As(err, &eOsSyscall) {
-		return false
-	}
-	var errErrno syscall.Errno // doesn't need a "*" (ptr) because it's already a ptr (uintptr)
-	if !errors.As(eOsSyscall, &errErrno) {
-		return false
-	}
-	if errors.Is(errErrno, syscall.EADDRINUSE) {
-		return true
-	}
-	const WSAEADDRINUSE = 10048
-	if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
-		return true
-	}
-	return false
-}
+

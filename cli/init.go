@@ -2,7 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"lbc/blockchain"
+	"lbc/cfg"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -14,13 +17,23 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		switch args[0] {
 		case "genesis":
-			initGenesis()
+			config, viper := cfg.InitGenesis(chainName, defaultConfigPath)
+			nodeinfo, err := blockchain.GetNodeInfo(config, dbPath)
+			if err != nil {
+				fmt.Printf("Error: %w", err)
+				panic(err)
+			}
+
+			cfg.UpdateGenesisJson(nodeinfo, viper, filepath.Dir(defaultConfigPath))
+			fmt.Println("Genesis node initialized.")
 		case "join":
 			if len(args) < 2 {
 				fmt.Println("Укажите путь к genesis.json")
 				os.Exit(1)
 			}
-			initJoiner(args[1])
+			cfg.InitJoiner(chainName, defaultConfigPath, args[1])
+
+			fmt.Println("Joiner node initialized.")
 		default:
 			fmt.Printf("Неизвестный режим init: %s\n", args[0])
 			os.Exit(1)

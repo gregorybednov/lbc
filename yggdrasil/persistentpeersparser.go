@@ -1,4 +1,4 @@
-package persistentpeersparser
+package yggdrasil
 
 import (
 	"fmt"

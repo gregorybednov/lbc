@@ -1,4 +1,4 @@
-package autopeering
+package yggdrasil
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func readPeersFile(path string) []url.URL {
 // connection strings. If fetching fails, it falls back to reading peers from
 // peers.txt in the current working directory. It returns an empty slice if no
 // peers can be retrieved.
-func GetPublicPeers() []url.URL {
+func getPublicPeers() []url.URL {
 	tempDir, err := os.MkdirTemp("", "public-peers-*")
 	if err != nil {
 		return readPeersFile("peers.txt")

@@ -1,10 +1,11 @@
-package configfunctions
+package cfg
 
 import (
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"lbc/yggdrasil"
 	"os"
 	"path/filepath"
@@ -18,10 +19,43 @@ import (
 	tmTypes "github.com/tendermint/tendermint/types"
 )
 
+type Config = cfg.Config
+
 var (
 	yggListenPort = 4224
 	yggKeyPath    = flag.String("ygg-key", "./config/yggdrasil.key", "Path to Yggdrasil key file")
 )
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	if err = os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = out.Sync()
+		_ = out.Close()
+	}()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
+func LoadViperConfig(path string) (*viper.Viper, error) {
+	v := viper.New()
+	v.SetConfigFile(path)
+	err := v.ReadInConfig()
+	return v, err
+}
 
 func InitTendermintFiles(config *cfg.Config, isGenesis bool, chainName string) error {
 	if err := os.MkdirAll(filepath.Dir(config.PrivValidatorKeyFile()), 0700); err != nil {
@@ -213,4 +247,60 @@ func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper, defaultConfigDirec
 	if err := os.WriteFile(genesisJsonPath, out, 0o644); err != nil {
 		panic(err)
 	}
+}
+
+func InitGenesis(chainName, defaultConfigPath string) (*cfg.Config, *viper.Viper) {
+	config := cfg.DefaultConfig()
+	config.RootDir = filepath.Dir(filepath.Dir(defaultConfigPath))
+
+	nodeinfo := p2p.DefaultNodeInfo{}
+	viper := WriteConfig(config, &defaultConfigPath, nodeinfo)
+	if err := InitTendermintFiles(config, true, chainName); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to init files: %v\n", err)
+		panic(err)
+	}
+
+	return config, viper
+}
+
+func InitJoiner(chainName, defaultConfigPath, path string) error {
+	config := cfg.DefaultConfig()
+	config.RootDir = filepath.Dir(filepath.Dir(defaultConfigPath))
+
+	if err := copyFile(path, config.GenesisFile()); err != nil {
+		fmt.Fprintln(os.Stderr, "не удалось скопировать genesis.json:", err)
+		os.Exit(3)
+	}
+
+	nodeinfo := p2p.DefaultNodeInfo{}
+	WriteConfig(config, &defaultConfigPath, nodeinfo)
+	//viper := cfg.WriteConfig(config, &defaultConfigPath, nodeinfo)
+	if err := InitTendermintFiles(config, false, chainName); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to init files: %v\n", err)
+		panic(err)
+	}
+
+	//node, db, err := buildNode()
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer db.Close()
+
+	//cfg.WriteConfig(config, &defaultConfigPath, node.NodeInfo())
+
+	//if err := os.MkdirAll(filepath.Join(config.RootDir, "data"), 0o700); err != nil {
+	//	fmt.Fprintln(os.Stderr, "не удалось создать директорию data")
+	//	os.Exit(1)
+	//}
+
+	if _, err := p2p.LoadOrGenNodeKey(config.NodeKeyFile()); err != nil {
+		return fmt.Errorf("ошибка генерации node_key.json")
+	}
+
+	pv := privval.GenFilePV(
+		config.PrivValidatorKeyFile(),
+		config.PrivValidatorStateFile(),
+	)
+	pv.Save()
+	return nil
 }
