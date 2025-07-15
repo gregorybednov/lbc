@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 
 		config, err := cfg.ReadConfig(defaultConfigPath)
 		if err != nil {
-			fmt.Printf("конфигурация не прочитана: %w", err)
+			fmt.Fprintf(os.Stderr, "конфигурация не прочитана: %v", err)
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())

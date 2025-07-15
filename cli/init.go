@@ -20,7 +20,7 @@ var initCmd = &cobra.Command{
 			config, viper := cfg.InitGenesis(chainName, defaultConfigPath)
 			nodeinfo, err := blockchain.GetNodeInfo(config, dbPath)
 			if err != nil {
-				fmt.Printf("Error: %w", err)
+				fmt.Fprintf(os.Stderr, "Error: %v", err)
 				panic(err)
 			}
 
@@ -28,14 +28,14 @@ var initCmd = &cobra.Command{
 			fmt.Println("Genesis node initialized.")
 		case "join":
 			if len(args) < 2 {
-				fmt.Println("Укажите путь к genesis.json")
+				fmt.Fprintln(os.Stderr, "Укажите путь к genesis.json")
 				os.Exit(1)
 			}
 			cfg.InitJoiner(chainName, defaultConfigPath, args[1])
 
 			fmt.Println("Joiner node initialized.")
 		default:
-			fmt.Printf("Неизвестный режим init: %s\n", args[0])
+			fmt.Fprintf(os.Stderr, "Неизвестный режим init: %s\n", args[0])
 			os.Exit(1)
 		}
 	},

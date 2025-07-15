@@ -64,7 +64,7 @@ func newTendermint(app abci.Application, config *cfg.Config, laddrReturner chan 
 func GetNodeInfo(config *cfg.Config, dbPath string) (p2p.NodeInfo, error) {
 	db, err := openBadger(dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open badger db to get node info", err)
+		return nil, fmt.Errorf("failed to open badger db to get node info %v", err)
 	}
 	defer db.Close()
 
