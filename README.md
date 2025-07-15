@@ -30,4 +30,10 @@ Once configured you can start the node with:
 go run .
 ```
 
+To verify Yggdrasil connectivity without starting Tendermint you can run:
+
+```bash
+go run . testYggdrasil
+```
+
 See `--help` for a full list of available options.
