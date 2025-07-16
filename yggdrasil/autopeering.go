@@ -25,6 +25,7 @@ type Peer struct {
 var PublicPeers string
 
 const repoURL = "https://github.com/yggdrasil-network/public-peers"
+const localPeersPath = "peers.txt"
 
 func readPeersFile(path string) []url.URL {
 	data, err := os.ReadFile(path)
@@ -53,13 +54,13 @@ func readPeersFile(path string) []url.URL {
 func getPublicPeers() []url.URL {
 	tempDir, err := os.MkdirTemp("", "public-peers-*")
 	if err != nil {
-		return readPeersFile("peers.txt")
+		return readPeersFile(localPeersPath)
 	}
 	defer os.RemoveAll(tempDir)
 
 	_, err = git.PlainCloneContext(context.Background(), tempDir, false, &git.CloneOptions{URL: repoURL, Depth: 1})
 	if err != nil {
-		return readPeersFile("peers.txt")
+		return readPeersFile(localPeersPath)
 	}
 
 	var peers []url.URL
@@ -86,7 +87,7 @@ func getPublicPeers() []url.URL {
 	})
 
 	if len(peers) == 0 {
-		return readPeersFile("peers.txt")
+		return readPeersFile(localPeersPath)
 	}
 	return peers
 }

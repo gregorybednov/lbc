@@ -8,7 +8,6 @@ import (
 	"github.com/gologme/log"
 	"github.com/spf13/viper"
 
-	adminapi "github.com/yggdrasil-network/yggdrasil-go/src/admin"
 	yggConfig "github.com/yggdrasil-network/yggdrasil-go/src/config"
 	"github.com/yggdrasil-network/yggdrasil-go/src/core"
 )
@@ -26,7 +25,7 @@ func TestConnectivity(config *viper.Viper) error {
 	cfg.AdminListen = ygg.GetString("admin_listen")
 	cfg.Listen = ygg.GetStringSlice("listen")
 	if ygg.GetString("peers") == "auto" {
-		publicPeers := getPublicPeers()
+		publicPeers := RandomPick(GetClosestPeers(getPublicPeers(), 20), 3)
 		var urls []string
 		for _, u := range publicPeers {
 			urls = append(urls, u.String())
@@ -72,15 +71,15 @@ func TestConnectivity(config *viper.Viper) error {
 	defer n.core.Stop()
 
 	// Start admin socket to query peers.
-	adminOpts := []adminapi.SetupOption{
-		adminapi.ListenAddress(cfg.AdminListen),
-	}
-	n.admin, err = adminapi.New(n.core, logger, adminOpts...)
-	if err != nil {
-		return err
-	}
-	n.admin.SetupAdminHandlers()
-	defer n.admin.Stop()
+	//adminOpts := []adminapi.SetupOption{
+	//	adminapi.ListenAddress(cfg.AdminListen),
+	//}
+	//n.admin, err = adminapi.New(n.core, logger, adminOpts...)
+	//if err != nil {
+	//	return err
+	//}
+	//n.admin.SetupAdminHandlers()
+	//defer n.admin.Stop()
 
 	// Give the node some time to establish connections.
 	time.Sleep(5 * time.Second)
