@@ -82,12 +82,12 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	cfg.AdminListen = ygg.GetString("admin_listen")
 	cfg.Listen = ygg.GetStringSlice("listen")
 	if ygg.GetString("peers") == "auto" {
-		publicPeers := getPublicPeers()
-		var urlsAsStrings []string
+		publicPeers := RandomPick(GetClosestPeers(getPublicPeers(), 20), 3)
+		var urls []string
 		for _, u := range publicPeers {
-			urlsAsStrings = append(urlsAsStrings, u.String())
+			urls = append(urls, u.String())
 		}
-		cfg.Peers = urlsAsStrings
+		cfg.Peers = urls
 	} else {
 		cfg.Peers = ygg.GetStringSlice("peers")
 	}
@@ -284,5 +284,3 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	}
 	n.core.Stop()
 }
-
-

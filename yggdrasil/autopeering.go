@@ -3,6 +3,7 @@ package yggdrasil
 import (
 	"context"
 	"io/fs"
+	"log"
 	"math/rand"
 	"net"
 	"net/url"
@@ -64,9 +65,10 @@ func getPublicPeers() []url.URL {
 	}
 
 	var peers []url.URL
-	re := regexp.MustCompile(`(?m)^\s*(tcp|tls)://[^\s]+`)
+	re := regexp.MustCompile(`(?m)(tcp|tls)://[^\s` + "`" + `]+`)
 	filepath.WalkDir(tempDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			log.Printf("walk error: %v", err)
 			return nil
 		}
 		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") || d.Name() == "README.md" {
@@ -77,7 +79,8 @@ func getPublicPeers() []url.URL {
 			return nil
 		}
 		for _, m := range re.FindAllStringSubmatch(string(data), -1) {
-			url, err := url.Parse(strings.TrimSpace(m[1]))
+			urlStr := strings.TrimSpace(m[0])
+			url, err := url.Parse(urlStr)
 			if err != nil {
 				panic(err)
 			}
