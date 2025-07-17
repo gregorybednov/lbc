@@ -45,7 +45,6 @@ var testYggdrasilCmd = &cobra.Command{
 }
 
 func notblockchain(ctx context.Context, dbPath string, config *cfg.Config, laddrReturner chan string) error {
-	isGenesis := false
 	laddr := "tcp://" + <-laddrReturner
 	p2peers := <-laddrReturner
 
@@ -71,12 +70,9 @@ func notblockchain(ctx context.Context, dbPath string, config *cfg.Config, laddr
 		}
 		peerAddrs = append(peerAddrs, parts[1])
 	}
-	if len(peerAddrs) == 0 {
-		log.Fatalf("нет ни одного валидного пира в %q", p2peers)
-	}
 
 	// --- стартовое сообщение от не-genesis ---
-	if !isGenesis {
+	if len(peerAddrs) > 0 {
 		initial := []byte("HELLO_FROM_JOINER\n")
 		for _, pa := range peerAddrs {
 			go sendToPeer(proto, pa, initial)
@@ -98,7 +94,15 @@ func notblockchain(ctx context.Context, dbPath string, config *cfg.Config, laddr
 				return
 			}
 
-			log.Printf("received %d bytes, waiting 10s before forwarding", len(data))
+			log.Printf("received %d bytes", len(data))
+
+			// если нет пиров, просто возвращаемся
+			if len(peerAddrs) == 0 {
+				log.Printf("  → no peers configured, dropping/ignoring message")
+				return
+			}
+
+			log.Printf("  → waiting 10s before forwarding to %d peers", len(peerAddrs))
 			time.Sleep(10 * time.Second)
 
 			for _, pa := range peerAddrs {
