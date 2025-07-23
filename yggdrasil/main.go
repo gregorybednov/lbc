@@ -2,6 +2,7 @@ package yggdrasil
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -79,6 +80,29 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 
 	cfg := yggConfig.GenerateConfig()
 
+	// Чтение ключа из файла
+	cfg.PrivateKeyPath = ygg.GetString("private_key_file")
+	keyFile, err := os.ReadFile(cfg.PrivateKeyPath)
+	if err != nil {
+		panic(err)
+	}
+	keyHex := strings.TrimSpace(string(keyFile))
+	keyBytes, err := hex.DecodeString(keyHex)
+	if err != nil {
+		panic(fmt.Errorf("failed to decode private key hex: %w", err))
+	}
+	if len(keyBytes) != ed25519.PrivateKeySize {
+		panic(fmt.Errorf("invalid private key length: got %d, expected %d", len(keyBytes), ed25519.PrivateKeySize))
+	}
+	copy(cfg.PrivateKey[:], keyBytes)
+
+	// Заполняем Certificate из PrivateKey
+	err = cfg.GenerateSelfSignedCertificate()
+	if err != nil {
+		panic(fmt.Errorf("failed to generate certificate from private key: %w", err))
+	}
+
+	cfg.AllowedPublicKeys = ygg.GetStringSlice("allowed_public_keys")
 	cfg.AdminListen = ygg.GetString("admin_listen")
 	cfg.Listen = ygg.GetStringSlice("listen")
 	if ygg.GetString("peers") == "auto" {
@@ -92,10 +116,7 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 		cfg.Peers = ygg.GetStringSlice("peers")
 	}
 
-	logger.Infof("Yggdrasil peers: %s", cfg.Peers)
-
-	cfg.AllowedPublicKeys = ygg.GetStringSlice("allowed-public-keys")
-	cfg.PrivateKeyPath = ygg.GetString("private-key-file")
+	logger.Printf("Yggdrasil peers: %s", cfg.Peers)
 
 	// Catch interrupts from the operating system to exit gracefully.
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -216,7 +237,7 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 
 			// запускаем горутину проксирования далее уже по этому listener
 			go func(l *net.TCPListener, mapped net.TCPAddr) {
-				logger.Infof("Mapping local TCP port %d to Ygg %s", realPort, mapped.String())
+				logger.Printf("Mapping local TCP port %d to Ygg %s", realPort, mapped.String())
 				for {
 					c, err := l.Accept()
 					if err != nil {
@@ -249,7 +270,7 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 				if err != nil {
 					panic(err)
 				}
-				logger.Infof("Mapping Yggdrasil TCP port %d to %s", mapping.Listen.Port, mapping.Mapped)
+				logger.Printf("Mapping Yggdrasil TCP port %s %d to %s", mapping.Listen.String(), mapping.Listen.Port, mapping.Mapped)
 				for {
 					c, err := listener.Accept()
 					if err != nil {
