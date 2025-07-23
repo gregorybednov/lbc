@@ -49,11 +49,26 @@ func GetYggdrasilAddress(config *viper.Viper) string {
 
 	cfg := yggConfig.GenerateConfig()
 
-	cfg.AdminListen = ygg.GetString("admin_listen")
-	cfg.Listen = ygg.GetStringSlice("listen")
-	cfg.Peers = ygg.GetStringSlice("peers")
-	cfg.AllowedPublicKeys = ygg.GetStringSlice("allowed-public-keys")
-	cfg.PrivateKeyPath = ygg.GetString("private-key-file")
+	cfg.PrivateKeyPath = ygg.GetString("private_key_file")
+	keyFile, err := os.ReadFile(cfg.PrivateKeyPath)
+	if err != nil {
+		panic(err)
+	}
+	keyHex := strings.TrimSpace(string(keyFile))
+	keyBytes, err := hex.DecodeString(keyHex)
+	if err != nil {
+		panic(fmt.Errorf("failed to decode private key hex: %w", err))
+	}
+	if len(keyBytes) != ed25519.PrivateKeySize {
+		panic(fmt.Errorf("invalid private key length: got %d, expected %d", len(keyBytes), ed25519.PrivateKeySize))
+	}
+	copy(cfg.PrivateKey[:], keyBytes)
+
+	// Заполняем Certificate из PrivateKey
+	err = cfg.GenerateSelfSignedCertificate()
+	if err != nil {
+		panic(fmt.Errorf("failed to generate certificate from private key: %w", err))
+	}
 
 	logger := log.Default()
 
