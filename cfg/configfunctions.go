@@ -155,9 +155,10 @@ func WriteConfig(config *cfg.Config, configPath *string, nodeInfo p2p.NodeInfo) 
 	})
 
 	if a := ReadP2Peers(*configPath); a == "" {
-		nodeId := nodeInfo.ID()
-		myPeer := yggdrasil.GetYggdrasilAddress(v)
-		config.P2P.PersistentPeers = string(nodeId) + "@ygg://[" + myPeer + "]:" + strconv.Itoa(yggListenPort)
+		//nodeId := nodeInfo.ID()
+		//myPeer := yggdrasil.GetYggdrasilAddress(v)
+		//config.P2P.PersistentPeers = string(nodeId) + "@ygg://[" + myPeer + "]:" + strconv.Itoa(yggListenPort)
+		config.P2P.PersistentPeers = a
 	} else {
 		config.P2P.PersistentPeers = a
 	}
