@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"regexp"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/gologme/log"
@@ -31,16 +32,6 @@ type node struct {
 	socks5Unix net.Listener
 }
 
-type TCPLocalListenerMapping struct {
-	Listen *net.TCPListener
-	Mapped net.TCPAddr
-}
-
-type TCPRemoteListenerMapping struct {
-	Listen net.TCPAddr
-	Mapped *net.TCPListener
-}
-
 // The main function is responsible for configuring and starting Yggdrasil.
 func Yggdrasil(config *viper.Viper, ch chan string) {
 	var remoteTcp types.TCPRemoteMappings
@@ -56,9 +47,6 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 		log.Errorln("No [p2p] config found")
 		return
 	}
-
-	var peersList []string
-	var yggList []string
 
 	// Create a new logger that logs output to stdout.
 	var logger *log.Logger
@@ -205,56 +193,88 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 		panic(err)
 	}
 
-	// Create local TCP mappings (forwarding connections from local port
-	// to remote Yggdrasil node)
 	{
+		counter := 0
 		for _, p := range parsed {
-			// 1) создаём listener на порту 0 — получим динамический свободный
-			laddr := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 0}
-			listener, err := net.ListenTCP("tcp", laddr)
-			if err != nil {
-				panic(err)
-			}
-
-			// извлекаем фактический порт
-			realPort := listener.Addr().(*net.TCPAddr).Port
-
-			// 2) собираем строку для ygg-маппинга: "127.0.0.1:<realPort>:<peerIP>:<peerPort>"
-			remotePort := ""
-			if p.Port != nil {
-				remotePort = fmt.Sprintf(":%d", *p.Port)
-			}
 			if p.Proto == "ygg" {
-				yggList = append(yggList,
-					fmt.Sprintf("127.0.0.1:%d:%s%s", realPort, p.Address, remotePort),
-				)
+				counter++
 			}
-
-			// 3) строка для Tendermint PersistentPeers: "<peerID>@127.0.0.1:<realPort>"
-			peersList = append(peersList,
-				fmt.Sprintf("%s@127.0.0.1:%d", p.ID, realPort),
-			)
-
-			// запускаем горутину проксирования далее уже по этому listener
-			go func(l *net.TCPListener, mapped net.TCPAddr) {
-				logger.Printf("Mapping local TCP port %d to Ygg %s", realPort, mapped.String())
-				for {
-					c, err := l.Accept()
-					if err != nil {
-						panic(err)
-					}
-					r, err := s.DialTCP(&mapped)
-					if err != nil {
-						logger.Errorf("Failed to connect to %s: %s", mapped.String(), err)
-						_ = c.Close()
-						continue
-					}
-					go types.ProxyTCP(n.core.MTU(), c, r)
-				}
-			}(listener, net.TCPAddr{IP: net.ParseIP(p.Address), Port: *p.Port})
 		}
 
-		// а вот здесь — динамические peer-ы
+		peerChan := make(chan string, counter)
+		var wg sync.WaitGroup
+
+		type mappingRecord struct {
+			mapping types.TCPMapping
+			id      string
+			//	ch      chan string
+		}
+
+		addrs := make([]mappingRecord, counter)
+		counter = 0
+
+		for _, p := range parsed {
+			if p.Proto != "ygg" {
+				continue
+			}
+
+			cleanAddr := strings.Trim(p.Address, "[]")
+
+			addrs[counter].id = p.ID
+			addrs[counter].mapping.Mapped = &net.TCPAddr{
+				IP:   net.ParseIP(cleanAddr),
+				Port: *p.Port,
+			}
+			counter++
+		}
+
+		for _, record := range addrs {
+			wg.Add(1)
+			go func(q mappingRecord) {
+				defer wg.Done()
+
+				laddr := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0}
+				listener, err := net.ListenTCP("tcp", laddr)
+				if err != nil {
+					logger.Errorf("Failed to bind dynamic port for peer %s: %v", q.id, err)
+					return
+				}
+				realPort := listener.Addr().(*net.TCPAddr).Port
+				peerChan <- fmt.Sprintf("%s@127.0.0.1:%d", q.id, realPort)
+
+				logger.Printf("Mapping local TCP port %d to Yggdrasil %s", realPort, q.mapping.Mapped)
+				go func() {
+					for {
+						fmt.Println("Accepting...")
+						c, err := listener.Accept()
+						fmt.Println("Accepted!")
+						if err != nil {
+							panic(err)
+						}
+						fmt.Println("Dialing...")
+						r, err := s.DialTCP(q.mapping.Mapped)
+						fmt.Println("Dialed! (or not)")
+						if err != nil {
+							fmt.Println("Not dialed due ", err)
+							logger.Errorf("Failed to connect to %s: %s", q.mapping.Mapped, err)
+							_ = c.Close()
+							continue
+						}
+						go types.ProxyTCP(n.core.MTU(), c, r)
+					}
+				}()
+			}(record)
+		}
+
+		go func() {
+			wg.Wait()
+			close(peerChan)
+		}()
+
+		var peersList []string
+		for peer := range peerChan {
+			peersList = append(peersList, peer)
+		}
 		ch <- strings.Join(peersList, ",")
 	}
 
