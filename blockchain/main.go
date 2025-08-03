@@ -23,12 +23,7 @@ func openBadger(path string) (*badger.DB, error) {
 
 func newTendermint(app abci.Application, config *cfg.Config, laddrReturner chan string) (*nm.Node, error) {
 	config.P2P.ListenAddress = "tcp://" + <-laddrReturner
-
-	//if config.P2P.PersistentPeers == "" {
 	config.P2P.PersistentPeers = <-laddrReturner
-	//} else {
-	//	<- laddrReturner
-	//}
 
 	var pv tmTypes.PrivValidator
 	if _, err := os.Stat(config.PrivValidatorKeyFile()); err == nil {
@@ -108,7 +103,6 @@ func GetNodeInfo(config *cfg.Config, dbPath string) (p2p.NodeInfo, error) {
 
 }
 
-// В blockchain/run.go
 func Run(ctx context.Context, dbPath string, config *cfg.Config, laddrReturner chan string) error {
 	db, err := openBadger(dbPath)
 	if err != nil {
@@ -128,12 +122,10 @@ func Run(ctx context.Context, dbPath string, config *cfg.Config, laddrReturner c
 
 	}()
 
-	// ждём контекст или внутренних ошибок узла
 	select {
 	case <-ctx.Done():
-	case <-node.Quit(): // Tendermint закрылся сам
+	case <-node.Quit():
 		return err
-		// Node quit signal received
 	}
 	node.Stop()
 	node.Wait()
