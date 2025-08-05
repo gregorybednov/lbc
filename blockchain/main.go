@@ -63,7 +63,7 @@ func GetNodeInfo(config *cfg.Config, dbPath string) (p2p.NodeInfo, error) {
 	}
 	defer db.Close()
 
-	app := NewKVStoreApplication(db)
+	app := NewPromiseApp(db)
 
 	nodeKey, err := p2p.LoadNodeKey(config.NodeKeyFile())
 	if err != nil {
@@ -110,7 +110,7 @@ func Run(ctx context.Context, dbPath string, config *cfg.Config, laddrReturner c
 	}
 	defer db.Close()
 
-	app := NewKVStoreApplication(db)
+	app := NewPromiseApp(db)
 	node, err := newTendermint(app, config, laddrReturner)
 	if err != nil {
 		return fmt.Errorf("build node: %w", err)
