@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"lbc/blockchain/types"
 	"strings"
 
 	"github.com/dgraph-io/badger"
@@ -17,46 +18,14 @@ type PromiseApp struct {
 	currentBatch *badger.Txn
 }
 
-type CommiterTxBody struct {
-	Type           string `json:"type"`
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	CommiterPubKey string `json:"commiter_pubkey"`
-}
-
-type PromiseTxBody struct {
-	Type        string `json:"type"`
-	ID          string `json:"id"`
-	Description string `json:"description"`
-	Timestamp   int64  `json:"timestamp,omitempty"` // ← чтобы понимать клиент
-	Title       string `json:"title,omitempty"`     // ← опционально, если когда-нибудь пригодится
-	Deadline    string `json:"deadline,omitempty"`
-}
-
-type CommitmentTxBody struct {
-	Type        string `json:"type"`
-	ID          string `json:"id"`
-	PromiseID   string `json:"promise_id"`
-	CommiterID  string `json:"commiter_id"`
-	CommiterSig string `json:"commiter_sig,omitempty"`
-}
-
 type compoundTxRaw struct {
 	Body      json.RawMessage `json:"body"`
 	Signature string          `json:"signature"`
 }
 
 type compoundBody struct {
-	Promise    *PromiseTxBody    `json:"promise"`
-	Commitment *CommitmentTxBody `json:"commitment"`
-}
-
-type CompoundTx struct {
-	Body struct {
-		Promise    *PromiseTxBody    `json:"promise"`
-		Commitment *CommitmentTxBody `json:"commitment"`
-	} `json:"body"`
-	Signature string `json:"signature"`
+	Promise    *types.PromiseTxBody    `json:"promise"`
+	Commitment *types.CommitmentTxBody `json:"commitment"`
 }
 
 func NewPromiseApp(db *badger.DB) *PromiseApp {
@@ -65,8 +34,8 @@ func NewPromiseApp(db *badger.DB) *PromiseApp {
 
 func verifyAndExtractBody(db *badger.DB, tx []byte) (map[string]interface{}, error) {
 	var outer struct {
-		Body      CommiterTxBody `json:"body"`
-		Signature string         `json:"signature"`
+		Body      types.CommiterTxBody `json:"body"`
+		Signature string               `json:"signature"`
 	}
 
 	if err := json.Unmarshal(tx, &outer); err != nil {
@@ -195,8 +164,8 @@ func (app *PromiseApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliver
 	compound, err := verifyCompoundTx(app.db, req.Tx)
 	if err != nil {
 		outer := struct {
-			Body      CommiterTxBody `json:"body"`
-			Signature string         `json:"signature"`
+			Body      types.CommiterTxBody `json:"body"`
+			Signature string               `json:"signature"`
 		}{}
 		if err := json.Unmarshal(req.Tx, &outer); err != nil {
 			return abci.ResponseDeliverTx{Code: 1, Log: "invalid tx format"}
@@ -247,7 +216,7 @@ func (app *PromiseApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliver
 	return abci.ResponseDeliverTx{Code: 0}
 }
 
-func verifyCompoundTx(db *badger.DB, tx []byte) (*CompoundTx, error) {
+func verifyCompoundTx(db *badger.DB, tx []byte) (*types.CompoundTx, error) {
 	// 1) Разобрать внешний конверт, body оставить сырым
 	var outerRaw compoundTxRaw
 	if err := json.Unmarshal(tx, &outerRaw); err != nil {
@@ -286,7 +255,7 @@ func verifyCompoundTx(db *badger.DB, tx []byte) (*CompoundTx, error) {
 	if err != nil {
 		return nil, err
 	}
-	var commiter CommiterTxBody
+	var commiter types.CommiterTxBody
 	if err := json.Unmarshal(commiterData, &commiter); err != nil {
 		return nil, errors.New("corrupted commiter record")
 	}
@@ -321,10 +290,10 @@ func verifyCompoundTx(db *badger.DB, tx []byte) (*CompoundTx, error) {
 	}
 
 	// 6) Вернуть в привычной форме
-	return &CompoundTx{
+	return &types.CompoundTx{
 		Body: struct {
-			Promise    *PromiseTxBody    `json:"promise"`
-			Commitment *CommitmentTxBody `json:"commitment"`
+			Promise    *types.PromiseTxBody    `json:"promise"`
+			Commitment *types.CommitmentTxBody `json:"commitment"`
 		}{
 			Promise:    body.Promise,
 			Commitment: body.Commitment,
