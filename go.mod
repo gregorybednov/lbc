@@ -68,6 +68,7 @@ require (
 	github.com/google/orderedcode v0.0.1 // indirect
 	github.com/google/pprof v0.0.0-20241017200806-017d972448fc // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/gregorybednov/lbc_sdk v0.0.0-20250810102513-432a51e65f76 // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hjson/hjson-go/v4 v4.4.0 // indirect

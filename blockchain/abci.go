@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gregorybednov/lbc/blockchain/types"
+	types "github.com/gregorybednov/lbc_sdk"
 
 	"github.com/dgraph-io/badger"
 	abci "github.com/tendermint/tendermint/abci/types"
