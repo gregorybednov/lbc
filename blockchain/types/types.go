@@ -34,3 +34,8 @@ type CompoundTx struct {
 	} `json:"body"`
 	Signature string `json:"signature"`
 }
+
+type SignedTx struct {
+	Body      any    `json:"body"`
+	Signature string `json:"signature"`
+}
