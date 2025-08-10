@@ -33,6 +33,19 @@ func NewPromiseApp(db *badger.DB) *PromiseApp {
 	return &PromiseApp{db: db}
 }
 
+func hasPrefix(id, pref string) bool { return strings.HasPrefix(id, pref+":") }
+
+func requireIDPrefix(id, pref string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("missing %s id", pref)
+	}
+	if !hasPrefix(id, pref) {
+		return fmt.Errorf("invalid %s id prefix", pref)
+	}
+	return nil
+}
+
+
 func verifyAndExtractBody(db *badger.DB, tx []byte) (map[string]interface{}, error) {
 	var outer struct {
 		Body      types.CommiterTxBody `json:"body"`
@@ -83,73 +96,162 @@ func verifyAndExtractBody(db *badger.DB, tx []byte) (map[string]interface{}, err
 func (app *PromiseApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 	compound, err := verifyCompoundTx(app.db, req.Tx)
 	if err == nil {
-		// Проверка на уникальность Promise.ID
-		if compound.Body.Promise != nil {
-			err := app.db.View(func(txn *badger.Txn) error {
-				_, err := txn.Get([]byte(compound.Body.Promise.ID))
-				if err == badger.ErrKeyNotFound {
-					return nil
-				}
-				return errors.New("duplicate promise ID")
-			})
-			if err != nil {
+		// ---- Валидация содержимого композита по ER ----
+		p := compound.Body.Promise
+		c := compound.Body.Commitment
+
+		// Оба тела должны присутствовать
+		if p == nil || c == nil {
+			return abci.ResponseCheckTx{Code: 1, Log: "compound must include promise and commitment"}
+		}
+
+		// ID-предикаты и префиксы
+		if err := requireIDPrefix(p.ID, "promise"); err != nil {
+			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		}
+		if err := requireIDPrefix(c.ID, "commitment"); err != nil {
+			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		}
+		if err := requireIDPrefix(c.CommiterID, "commiter"); err != nil {
+			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		}
+		if err := requireIDPrefix(p.BeneficiaryID, "beneficiary"); err != nil {
+			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		}
+		if p.ParentPromiseID != nil {
+			if err := requireIDPrefix(*p.ParentPromiseID, "promise"); err != nil {
 				return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
 			}
-		}
-
-		// Проверка на уникальность Commitment.ID
-		if compound.Body.Commitment != nil {
-			err := app.db.View(func(txn *badger.Txn) error {
-				_, err := txn.Get([]byte(compound.Body.Commitment.ID))
-				if err == badger.ErrKeyNotFound {
-					return nil
-				}
-				return errors.New("duplicate commitment ID")
-			})
-			if err != nil {
-				return abci.ResponseCheckTx{Code: 3, Log: err.Error()}
+			if *p.ParentPromiseID == p.ID {
+				return abci.ResponseCheckTx{Code: 2, Log: "parent_promise_id must not equal promise id"}
 			}
 		}
 
-		// Проверка на существование коммитера
-		if compound.Body.Commitment != nil {
-			err := app.db.View(func(txn *badger.Txn) error {
-				_, err := txn.Get([]byte(compound.Body.Commitment.CommiterID))
-				if err == badger.ErrKeyNotFound {
-					return errors.New("unknown commiter")
+		// Базовые обязательные поля Promise
+		if strings.TrimSpace(p.Text) == "" {
+			return abci.ResponseCheckTx{Code: 2, Log: "promise.text is required"}
+		}
+		if p.Due == 0 {
+			return abci.ResponseCheckTx{Code: 2, Log: "promise.due is required"}
+		}
+		// Commitment due
+		if c.Due == 0 {
+			return abci.ResponseCheckTx{Code: 2, Log: "commitment.due is required"}
+		}
+
+		// Связность по ER
+		if c.PromiseID != p.ID {
+			return abci.ResponseCheckTx{Code: 2, Log: "commitment.promise_id must equal promise.id"}
+		}
+
+		// Уникальность Promise.ID
+		if err := app.db.View(func(txn *badger.Txn) error {
+			_, e := txn.Get([]byte(p.ID))
+			if e == badger.ErrKeyNotFound {
+				return nil
+			}
+			return errors.New("duplicate promise ID")
+		}); err != nil {
+			return abci.ResponseCheckTx{Code: 3, Log: err.Error()}
+		}
+		// Уникальность Commitment.ID
+		if err := app.db.View(func(txn *badger.Txn) error {
+			_, e := txn.Get([]byte(c.ID))
+			if e == badger.ErrKeyNotFound {
+				return nil
+			}
+			return errors.New("duplicate commitment ID")
+		}); err != nil {
+			return abci.ResponseCheckTx{Code: 3, Log: err.Error()}
+		}
+
+		// Существование коммитера (у тебя уже было — оставляю)
+		if err := app.db.View(func(txn *badger.Txn) error {
+			_, e := txn.Get([]byte(c.CommiterID))
+			if e == badger.ErrKeyNotFound {
+				return errors.New("unknown commiter")
+			}
+			return nil
+		}); err != nil {
+			return abci.ResponseCheckTx{Code: 4, Log: err.Error()}
+		}
+
+		// Существование бенефициара
+		if err := app.db.View(func(txn *badger.Txn) error {
+			_, e := txn.Get([]byte(p.BeneficiaryID))
+			if e == badger.ErrKeyNotFound {
+				return errors.New("unknown beneficiary")
+			}
+			return nil
+		}); err != nil {
+			return abci.ResponseCheckTx{Code: 5, Log: err.Error()}
+		}
+
+		// Существование parent (если задан)
+		if p.ParentPromiseID != nil {
+			if err := app.db.View(func(txn *badger.Txn) error {
+				_, e := txn.Get([]byte(*p.ParentPromiseID))
+				if e == badger.ErrKeyNotFound {
+					return errors.New("unknown parent promise")
 				}
 				return nil
-			})
-			if err != nil {
-				return abci.ResponseCheckTx{Code: 4, Log: err.Error()}
+			}); err != nil {
+				return abci.ResponseCheckTx{Code: 6, Log: err.Error()}
 			}
 		}
 
 		return abci.ResponseCheckTx{Code: 0}
 	}
 
-	// Попытка старого формата только если он реально валиден;
-	// иначе возвращаем исходную причину из verifyCompoundTx.
+	// ---- Попытка ОДИНОЧНЫХ транзакций ----
+
+	// 3.1) Совместимость: одиночный commiter (твоя старая логика)
 	if body, oldErr := verifyAndExtractBody(app.db, req.Tx); oldErr == nil {
 		id, ok := body["id"].(string)
 		if !ok || id == "" {
 			return abci.ResponseCheckTx{Code: 2, Log: "missing id"}
 		}
-		// Проверка на дубликат
-		err := app.db.View(func(txn *badger.Txn) error {
-			_, err := txn.Get([]byte(id))
-			if err == badger.ErrKeyNotFound {
+		if err := requireIDPrefix(id, "commiter"); err != nil {
+			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		}
+		// Дубликат
+		if err := app.db.View(func(txn *badger.Txn) error {
+			_, e := txn.Get([]byte(id))
+			if e == badger.ErrKeyNotFound {
 				return nil
 			}
 			return errors.New("duplicate id")
-		})
-		if err != nil {
+		}); err != nil {
 			return abci.ResponseCheckTx{Code: 3, Log: err.Error()}
 		}
 		return abci.ResponseCheckTx{Code: 0}
 	}
 
-	// Здесь: составной формат не прошёл — вернём ПРИЧИНУ.
+	var single struct {
+		Body      types.BeneficiaryTxBody `json:"body"`
+		Signature string            `json:"signature"`
+	}
+	if err2 := json.Unmarshal(req.Tx, &single); err2 == nil && single.Body.Type == "beneficiary" {
+		if err := requireIDPrefix(single.Body.ID, "beneficiary"); err != nil {
+			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		}
+		if strings.TrimSpace(single.Body.Name) == "" {
+			return abci.ResponseCheckTx{Code: 2, Log: "beneficiary.name is required"}
+		}
+		// уникальность
+		if err := app.db.View(func(txn *badger.Txn) error {
+			_, e := txn.Get([]byte(single.Body.ID))
+			if e == badger.ErrKeyNotFound {
+				return nil
+			}
+			return errors.New("duplicate beneficiary ID")
+		}); err != nil {
+			return abci.ResponseCheckTx{Code: 3, Log: err.Error()}
+		}
+		return abci.ResponseCheckTx{Code: 0}
+	}
+
+	// Если дошли сюда — составной формат не прошёл; вернём его причину.
 	return abci.ResponseCheckTx{Code: 1, Log: err.Error()}
 }
 
@@ -162,59 +264,68 @@ func (app *PromiseApp) BeginBlock(_ abci.RequestBeginBlock) abci.ResponseBeginBl
 }
 
 func (app *PromiseApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliverTx {
-	compound, err := verifyCompoundTx(app.db, req.Tx)
-	if err != nil {
-		outer := struct {
-			Body      types.CommiterTxBody `json:"body"`
-			Signature string               `json:"signature"`
-		}{}
-		if err := json.Unmarshal(req.Tx, &outer); err != nil {
-			return abci.ResponseDeliverTx{Code: 1, Log: "invalid tx format"}
-		}
-		// Валидация подписи/ключа одиночного коммитера перед записью
-		if _, vErr := verifyAndExtractBody(app.db, req.Tx); vErr != nil {
-			return abci.ResponseDeliverTx{Code: 1, Log: vErr.Error()}
-		}
-
-		id := outer.Body.ID
-		if id == "" {
-			return abci.ResponseDeliverTx{Code: 1, Log: "missing id"}
-		}
-
+	// Попытка композита
+	if compound, err := verifyCompoundTx(app.db, req.Tx); err == nil {
 		if app.currentBatch == nil {
 			app.currentBatch = app.db.NewTransaction(true)
 		}
-
-		data, err := json.Marshal(outer.Body)
-		if err != nil {
-			return abci.ResponseDeliverTx{Code: 1, Log: err.Error()}
+		if compound.Body.Promise != nil {
+			data, _ := json.Marshal(compound.Body.Promise)
+			if err := app.currentBatch.Set([]byte(compound.Body.Promise.ID), data); err != nil {
+				return abci.ResponseDeliverTx{Code: 1, Log: "failed to save promise"}
+			}
 		}
-		if err = app.currentBatch.Set([]byte(id), data); err != nil {
-			return abci.ResponseDeliverTx{Code: 1, Log: err.Error()}
+		if compound.Body.Commitment != nil {
+			data, _ := json.Marshal(compound.Body.Commitment)
+			if err := app.currentBatch.Set([]byte(compound.Body.Commitment.ID), data); err != nil {
+				return abci.ResponseDeliverTx{Code: 1, Log: "failed to save commitment"}
+			}
 		}
 		return abci.ResponseDeliverTx{Code: 0}
 	}
 
-	if app.currentBatch == nil {
-		app.currentBatch = app.db.NewTransaction(true)
-	}
-
-	if compound.Body.Promise != nil {
-		data, _ := json.Marshal(compound.Body.Promise)
-		err := app.currentBatch.Set([]byte(compound.Body.Promise.ID), data)
-		if err != nil {
-			return abci.ResponseDeliverTx{Code: 1, Log: "failed to save promise"}
+	// Одиночный commiter (как раньше)
+	{
+		var outer struct {
+			Body      types.CommiterTxBody `json:"body"`
+			Signature string               `json:"signature"`
+		}
+		if err := json.Unmarshal(req.Tx, &outer); err == nil && outer.Body.Type == "commiter" {
+			// сигнатуру проверяем прежней функцией
+			if _, vErr := verifyAndExtractBody(app.db, req.Tx); vErr != nil {
+				return abci.ResponseDeliverTx{Code: 1, Log: vErr.Error()}
+			}
+			if app.currentBatch == nil {
+				app.currentBatch = app.db.NewTransaction(true)
+			}
+			data, _ := json.Marshal(outer.Body)
+			if err := app.currentBatch.Set([]byte(outer.Body.ID), data); err != nil {
+				return abci.ResponseDeliverTx{Code: 1, Log: err.Error()}
+			}
+			return abci.ResponseDeliverTx{Code: 0}
 		}
 	}
-	if compound.Body.Commitment != nil {
-		data, _ := json.Marshal(compound.Body.Commitment)
-		err := app.currentBatch.Set([]byte(compound.Body.Commitment.ID), data)
-		if err != nil {
-			return abci.ResponseDeliverTx{Code: 1, Log: "failed to save commitment"}
+
+	// Одиночный beneficiary
+	{
+		var outer struct {
+			Body      types.BeneficiaryTxBody `json:"body"`
+			Signature string            `json:"signature"`
+		}
+		if err := json.Unmarshal(req.Tx, &outer); err == nil && outer.Body.Type == "beneficiary" {
+			// (пока без проверки подписи — можно добавить политику позже)
+			if app.currentBatch == nil {
+				app.currentBatch = app.db.NewTransaction(true)
+			}
+			data, _ := json.Marshal(outer.Body)
+			if err := app.currentBatch.Set([]byte(outer.Body.ID), data); err != nil {
+				return abci.ResponseDeliverTx{Code: 1, Log: err.Error()}
+			}
+			return abci.ResponseDeliverTx{Code: 0}
 		}
 	}
 
-	return abci.ResponseDeliverTx{Code: 0}
+	return abci.ResponseDeliverTx{Code: 1, Log: "invalid tx format"}
 }
 
 func verifyCompoundTx(db *badger.DB, tx []byte) (*types.CompoundTx, error) {
