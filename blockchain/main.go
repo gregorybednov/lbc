@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"lbc/cfg"
 	"os"
+
+	"github.com/gregorybednov/lbc/cfg"
 
 	"github.com/dgraph-io/badger"
 	abci "github.com/tendermint/tendermint/abci/types"

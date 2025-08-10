@@ -6,11 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"lbc/yggdrasil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/gregorybednov/lbc/yggdrasil"
 
 	"github.com/spf13/viper"
 	cfg "github.com/tendermint/tendermint/config"

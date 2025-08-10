@@ -1,7 +1,7 @@
 package main
 
 import (
-	"lbc/cli"
+	"github.com/gregorybednov/lbc/cli"
 )
 
 func main() {

@@ -2,10 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"lbc/blockchain"
-	"lbc/cfg"
 	"os"
 	"path/filepath"
+
+	"github.com/gregorybednov/lbc/blockchain"
+	"github.com/gregorybednov/lbc/cfg"
 
 	"github.com/spf13/cobra"
 )

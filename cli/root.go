@@ -3,12 +3,13 @@ package cli
 import (
 	"context"
 	"fmt"
-	"lbc/blockchain"
-	"lbc/cfg"
-	"lbc/yggdrasil"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/gregorybednov/lbc/blockchain"
+	"github.com/gregorybednov/lbc/cfg"
+	"github.com/gregorybednov/lbc/yggdrasil"
 
 	"github.com/spf13/cobra"
 )

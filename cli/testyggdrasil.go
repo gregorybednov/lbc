@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"lbc/cfg"
-	"lbc/yggdrasil"
 	"log"
 	"net"
 	"net/url"
@@ -14,6 +12,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/gregorybednov/lbc/cfg"
+	"github.com/gregorybednov/lbc/yggdrasil"
 
 	"github.com/spf13/cobra"
 )

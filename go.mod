@@ -1,4 +1,4 @@
-module lbc
+module github.com/gregorybednov/lbc
 
 go 1.24.3
 

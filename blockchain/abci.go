@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"lbc/blockchain/types"
 	"strings"
+
+	"github.com/gregorybednov/lbc/blockchain/types"
 
 	"github.com/dgraph-io/badger"
 	abci "github.com/tendermint/tendermint/abci/types"
