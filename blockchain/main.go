@@ -24,6 +24,7 @@ func openBadger(path string) (*badger.DB, error) {
 
 func newTendermint(app abci.Application, config *cfg.Config, laddrReturner chan string) (*nm.Node, error) {
 	config.P2P.ListenAddress = "tcp://" + <-laddrReturner
+	config.P2P.ExternalAddress = <-laddrReturner
 	config.P2P.PersistentPeers = <-laddrReturner
 
 	var pv tmTypes.PrivValidator

@@ -62,7 +62,7 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 	parsed, err := ParseEntries(peers)
 	if err != nil {
 		parsed = []ParsedEntry{}
-		ch <- ""
+		//	ch <- ""
 		log.Warnln("Warning: persistent peers has an error")
 	}
 
@@ -141,11 +141,18 @@ func Yggdrasil(config *viper.Viper, ch chan string) {
 			panic(err)
 		}
 		address, subnet := n.core.Address(), n.core.Subnet()
-		publicstr := hex.EncodeToString(n.core.PublicKey())
-		logger.Printf("Your public key is %s", publicstr)
+		yggPort := 26656
+		if len(remoteTcp) > 0 && remoteTcp[0].Listen.Port != 0 {
+			yggPort = remoteTcp[0].Listen.Port
+		}
+		ipStr := address.String() // ожидается чистый IPv6 без /префикса
+		yggExternal := fmt.Sprintf("[%s]:%d", ipStr, yggPort)
+		ch <- yggExternal
+
+		//logger.Printf("Your public key is %s", publicstr)
 		logger.Printf("Your IPv6 address is %s", address.String())
 		logger.Printf("Your IPv6 subnet is %s", subnet.String())
-		logger.Printf("Your Yggstack resolver name is %s%s", publicstr, types.NameMappingSuffix)
+		//logger.Printf("Your Yggstack resolver name is %s%s", publicstr, types.NameMappingSuffix)
 	}
 
 	// Setup the admin socket.
