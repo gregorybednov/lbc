@@ -164,16 +164,17 @@ func WriteConfig(config *cfg.Config, configPath *string, nodeInfo p2p.NodeInfo) 
 		config.P2P.PersistentPeers = a
 	}
 
-	v.Set("p2p", map[string]interface{}{
-		"use_legacy":       false,
-		"queue_type":       "priority",
-		"laddr":            strconv.Itoa(yggListenPort) + ":127.0.0.1:8000",
-		"external_address": "", // will be set automatically by Tendermint if needed
-		"upnp":             false,
-		"bootstrap_peers":  "",
-		"persistent_peers": config.P2P.PersistentPeers,
-		"addr_book_file":   "config/addrbook.json",
-		"addr_book_strict": false,
+	v.Set("p2p", map[string]any{
+		"use_legacy":         false,
+		"queue_type":         "priority",
+		"laddr":              strconv.Itoa(yggListenPort) + ":127.0.0.1:8000",
+		"external_address":   "",
+		"upnp":               false,
+		"bootstrap_peers":    "",
+		"persistent_peers":   config.P2P.PersistentPeers,
+		"allow_duplicate_ip": true, // needed because of Yggdrasil proxy
+		"addr_book_file":     "config/addrbook.json",
+		"addr_book_strict":   false,
 	})
 
 	err = v.WriteConfigAs(*configPath)
