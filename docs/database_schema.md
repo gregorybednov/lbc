@@ -3,41 +3,41 @@
 ![[ER.svg]]
 
 <details>
-@startuml
+    @startuml
 
-entity Promise {
-  * ID: uuid
-  --
-  * text: text
-  * due: datetime
-  BeneficiaryID: uuid
-  ParentPromiseID: uuid
-}
+    entity Promise {
+      * ID: uuid
+      --
+      * text: string
+      due: datetime
+      BeneficiaryID: uuid
+      ParentPromiseID: uuid
+    }
 
-entity Beneficiary {
-  * ID: uuid
-  --
-  * name: string
-}
+    entity Beneficiary {
+      * ID: uuid
+      --
+      * name: string
+    }
 
-entity Commitment {
-  * ID: uuid
-  --
-  PromiseID: int
-  CommiterID: int
-  due: datetime
-}
+    entity Commitment {
+      * ID: uuid
+      --
+      PromiseID: uuid
+      CommiterID: uuid
+      due: datetime
+    }
 
-entity Commiter {
-  * ID: int
-  --
-  * name: string
-}
+    entity Commiter {
+      * ID: uuid
+      --
+      * name: string
+    }
 
-Commitment }|--|| Promise : belongs to
-Commitment }|--|| Commiter : made by
-Promise }o--|| Beneficiary : has
-Promise }--o Promise : parent of
+    Commitment }|--|| Promise : belongs to
+    Commitment }|--|| Commiter : made by
+    Promise }o--|| Beneficiary : has
+    Promise }--o Promise : parent of
 
-@enduml
+    @enduml
 </details>

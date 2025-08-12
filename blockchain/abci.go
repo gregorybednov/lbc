@@ -45,7 +45,6 @@ func requireIDPrefix(id, pref string) error {
 	return nil
 }
 
-
 func verifyAndExtractBody(db *badger.DB, tx []byte) (map[string]interface{}, error) {
 	var outer struct {
 		Body      types.CommiterTxBody `json:"body"`
@@ -131,13 +130,13 @@ func (app *PromiseApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 		if strings.TrimSpace(p.Text) == "" {
 			return abci.ResponseCheckTx{Code: 2, Log: "promise.text is required"}
 		}
-		if p.Due == 0 {
-			return abci.ResponseCheckTx{Code: 2, Log: "promise.due is required"}
-		}
+		//if p.Due == 0 {
+		//	return abci.ResponseCheckTx{Code: 2, Log: "promise.due is required"}
+		//}
 		// Commitment due
-		if c.Due == 0 {
-			return abci.ResponseCheckTx{Code: 2, Log: "commitment.due is required"}
-		}
+		//if c.Due == 0 {
+		//	return abci.ResponseCheckTx{Code: 2, Log: "commitment.due is required"}
+		//}
 
 		// Связность по ER
 		if c.PromiseID != p.ID {
@@ -165,7 +164,7 @@ func (app *PromiseApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 			return abci.ResponseCheckTx{Code: 3, Log: err.Error()}
 		}
 
-		// Существование коммитера (у тебя уже было — оставляю)
+		// Существование коммитера
 		if err := app.db.View(func(txn *badger.Txn) error {
 			_, e := txn.Get([]byte(c.CommiterID))
 			if e == badger.ErrKeyNotFound {
@@ -229,7 +228,7 @@ func (app *PromiseApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 
 	var single struct {
 		Body      types.BeneficiaryTxBody `json:"body"`
-		Signature string            `json:"signature"`
+		Signature string                  `json:"signature"`
 	}
 	if err2 := json.Unmarshal(req.Tx, &single); err2 == nil && single.Body.Type == "beneficiary" {
 		if err := requireIDPrefix(single.Body.ID, "beneficiary"); err != nil {
@@ -310,7 +309,7 @@ func (app *PromiseApp) DeliverTx(req abci.RequestDeliverTx) abci.ResponseDeliver
 	{
 		var outer struct {
 			Body      types.BeneficiaryTxBody `json:"body"`
-			Signature string            `json:"signature"`
+			Signature string                  `json:"signature"`
 		}
 		if err := json.Unmarshal(req.Tx, &outer); err == nil && outer.Body.Type == "beneficiary" {
 			// (пока без проверки подписи — можно добавить политику позже)
