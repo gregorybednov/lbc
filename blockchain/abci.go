@@ -114,9 +114,9 @@ func (app *PromiseApp) CheckTx(req abci.RequestCheckTx) abci.ResponseCheckTx {
 		if err := requireIDPrefix(c.CommiterID, "commiter"); err != nil {
 			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
 		}
-		if err := requireIDPrefix(p.BeneficiaryID, "beneficiary"); err != nil {
-			return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
-		}
+		//if err := requireIDPrefix(p.BeneficiaryID, "beneficiary"); err != nil {
+		//	return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
+		//}
 		if p.ParentPromiseID != nil {
 			if err := requireIDPrefix(*p.ParentPromiseID, "promise"); err != nil {
 				return abci.ResponseCheckTx{Code: 2, Log: err.Error()}
