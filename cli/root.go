@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
-		laddrReturner := make(chan string, 2)
+		laddrReturner := make(chan string, 3)
 		go yggdrasil.Yggdrasil(v, laddrReturner)
 		go blockchain.Run(ctx, dbPath, config, laddrReturner)
 
