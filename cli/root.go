@@ -3,8 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/gregorybednov/lbc/blockchain"
@@ -70,4 +72,36 @@ func Execute() {
 		fmt.Fprintf(os.Stderr, "ошибка: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func ExecuteWithArgs(args []string, home string, stdout, stderr io.Writer) error {
+	// Перенаправляем вывод Cobra
+	if stdout != nil {
+		rootCmd.SetOut(stdout)
+	}
+	if stderr != nil {
+		rootCmd.SetErr(stderr)
+	}
+
+	// Если задан home, подставим дефолты, на которые завязаны флаги
+	// (флаги привязаны к переменным через StringVar, поэтому смена переменных до Execute — норм.)
+	origCfg := defaultConfigPath
+	origDB := dbPath
+
+	if home != "" {
+		defaultConfigPath = filepath.Join(home, "config", "config.toml")
+		// Примем convention: BADGER в (home)/data/badger, но если у тебя другое — поменяй строку ниже.
+		dbPath = filepath.Join(home, "data", "badger")
+	}
+
+	// Важное: подаём именно те аргументы, которые хотел вызвать вызывающий код.
+	rootCmd.SetArgs(args)
+
+	// Выполняем и аккуратно восстанавливаем глобальные дефолты.
+	err := rootCmd.Execute()
+
+	defaultConfigPath = origCfg
+	dbPath = origDB
+
+	return err
 }
