@@ -256,9 +256,11 @@ func InitGenesis(chainName, defaultConfigPath string) (*cfg.Config, *viper.Viper
 	config := cfg.DefaultConfig()
 	config.RootDir = filepath.Dir(filepath.Dir(defaultConfigPath))
 
-	// Создаём директорию, если её нет
 	if err := os.MkdirAll(config.RootDir, 0o755); err != nil {
 		return nil, nil, fmt.Errorf("failed to create config directory %s: %w", config.RootDir, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(defaultConfigPath), 0o755); err != nil {
+		return nil, nil, fmt.Errorf("failed to create config directory %s: %w", filepath.Dir(defaultConfigPath), err)
 	}
 
 	nodeinfo := p2p.DefaultNodeInfo{}
