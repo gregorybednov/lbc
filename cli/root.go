@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
 
 	По умолчанию файл конфигурации ищется по пути: %s
 	`, err, defaultConfigPath)
-			os.Exit(1)
+			return
 		}
 
 		config, err := cfg.ReadConfig(defaultConfigPath)
@@ -70,7 +70,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "ошибка: %v\n", err)
-		os.Exit(1)
+		return
 	}
 }
 

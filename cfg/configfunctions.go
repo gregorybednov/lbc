@@ -252,18 +252,23 @@ func UpdateGenesisJson(nodeInfo p2p.NodeInfo, v *viper.Viper, defaultConfigDirec
 	}
 }
 
-func InitGenesis(chainName, defaultConfigPath string) (*cfg.Config, *viper.Viper) {
+func InitGenesis(chainName, defaultConfigPath string) (*cfg.Config, *viper.Viper, error) {
 	config := cfg.DefaultConfig()
 	config.RootDir = filepath.Dir(filepath.Dir(defaultConfigPath))
 
-	nodeinfo := p2p.DefaultNodeInfo{}
-	viper := WriteConfig(config, &defaultConfigPath, nodeinfo)
-	if err := InitTendermintFiles(config, true, chainName); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to init files: %v\n", err)
-		panic(err)
+	// Создаём директорию, если её нет
+	if err := os.MkdirAll(config.RootDir, 0o755); err != nil {
+		return nil, nil, fmt.Errorf("failed to create config directory %s: %w", config.RootDir, err)
 	}
 
-	return config, viper
+	nodeinfo := p2p.DefaultNodeInfo{}
+	viper := WriteConfig(config, &defaultConfigPath, nodeinfo)
+
+	if err := InitTendermintFiles(config, true, chainName); err != nil {
+		return nil, nil, fmt.Errorf("failed to init tendermint files: %w", err)
+	}
+
+	return config, viper, nil
 }
 
 func InitJoiner(chainName, defaultConfigPath, path string) error {

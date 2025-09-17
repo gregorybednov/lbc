@@ -26,7 +26,7 @@ var testYggdrasilCmd = &cobra.Command{
 		v, err := cfg.LoadViperConfig(defaultConfigPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "не удалось прочитать конфигурацию viper: %v", err)
-			os.Exit(1)
+			return err
 		}
 		config, err := cfg.ReadConfig(defaultConfigPath)
 		if err != nil {
